@@ -1,0 +1,46 @@
+# Compiled class files and build output
+target/
+*.class
+
+# Maven wrapper files
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE configuration files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Environment and secret files
+.env
+*.env
+application-prod.properties
+
+# Terraform state files (contain sensitive infrastructure details)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+
+# Package files
+*.jar
+*.war
+*.ear
