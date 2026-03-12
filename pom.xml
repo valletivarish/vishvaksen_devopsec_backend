@@ -28,7 +28,7 @@
         <pmd.version>3.21.2</pmd.version>
         <jacoco.version>0.8.12</jacoco.version>
         <!-- SonarCloud configuration properties -->
-        <sonar.organization>vishvaksen-machana</sonar.organization>
+        <sonar.organization>escthedeadline</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     </properties>
 
