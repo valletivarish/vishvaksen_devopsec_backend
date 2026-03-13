@@ -10,7 +10,7 @@ variable "aws_region" {
 variable "instance_type" {
   description = "EC2 instance type for the backend server"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.micro"
 }
 
 variable "ami_id" {
@@ -47,5 +47,5 @@ variable "db_password" {
 variable "s3_bucket_name" {
   description = "Globally unique S3 bucket name for frontend static hosting"
   type        = string
-  default     = "meal-planner-frontend-vm25173421"
+  default     = "smart-meal-planner-25173421"
 }

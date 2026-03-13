@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [main]
 
+defaults:
+  run:
+    working-directory: backend
+
 jobs:
   # ==================== CI STAGE ====================
   # Runs on every push and pull request
@@ -39,12 +43,11 @@ jobs:
         run: mvn verify -B -DskipTests
 
       # Step 5: Run Trivy vulnerability scanner on the project filesystem
-      # Replaces OWASP Dependency-Check for security vulnerability detection
       - name: Security Vulnerability Scan with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
-          scan-ref: '.'
+          scan-ref: './backend'
           format: 'table'
           output: 'trivy-report.txt'
           severity: 'CRITICAL,HIGH,MEDIUM'
@@ -56,7 +59,7 @@ jobs:
         if: always()
         with:
           name: spotbugs-report
-          path: target/spotbugs/
+          path: backend/target/spotbugs/
 
       # Step 7: Upload PMD analysis report as CI artifact
       - name: Upload PMD Report
@@ -64,7 +67,7 @@ jobs:
         if: always()
         with:
           name: pmd-report
-          path: target/pmd*
+          path: backend/target/pmd*
 
       # Step 8: Upload JaCoCo code coverage report as CI artifact
       - name: Upload JaCoCo Coverage Report
@@ -72,7 +75,7 @@ jobs:
         if: always()
         with:
           name: jacoco-coverage-report
-          path: target/site/jacoco/
+          path: backend/target/site/jacoco/
 
       # Step 9: Upload Trivy security scan report as CI artifact
       - name: Upload Trivy Security Report
@@ -85,10 +88,9 @@ jobs:
       # Step 10: Upload the packaged JAR as a build artifact for deployment
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: backend-jar
-          path: target/*.jar
+          path: backend/target/*.jar
 
   # ==================== CD STAGE ====================
   # Runs only on push to main branch (not on PRs)
@@ -107,42 +109,55 @@ jobs:
           name: backend-jar
           path: deploy/
 
-      # Step 2: Deploy JAR to EC2 via SSH and restart the application
-      - name: Deploy to AWS EC2
+      # Step 2: Stop existing service on EC2
+      - name: Stop existing service on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Stop existing application if running
             sudo systemctl stop mealplanner || true
-            # Create application directory if it does not exist
             sudo mkdir -p /opt/mealplanner
-            sudo chown ec2-user:ec2-user /opt/mealplanner
+            sudo chown ubuntu:ubuntu /opt/mealplanner
 
       # Step 3: Copy JAR file to EC2 instance
       - name: Copy JAR to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "deploy/*.jar"
           target: "/opt/mealplanner/"
           strip_components: 1
 
-      # Step 4: Start the application on EC2
+      # Step 4: Start the application on EC2 using prod profile (DB config in application-prod.properties)
       - name: Start Application on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Start the Spring Boot application using systemd
+            # Update systemd service - prod profile loads application-prod.properties
+            sudo tee /etc/systemd/system/mealplanner.service > /dev/null <<'SERVICE'
+            [Unit]
+            Description=Smart Recipe Meal Planner API
+            After=network.target
+            [Service]
+            Type=simple
+            User=ubuntu
+            ExecStart=/usr/bin/java -jar /opt/mealplanner/meal-planner-api-1.0.0.jar --spring.profiles.active=prod
+            Restart=always
+            RestartSec=10
+            [Install]
+            WantedBy=multi-user.target
+            SERVICE
+
+            sudo systemctl daemon-reload
+            sudo systemctl enable mealplanner
             sudo systemctl start mealplanner
-            # Wait for application to start up
             sleep 30
 
       # Step 5: Smoke test to verify deployment was successful
@@ -150,9 +165,8 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Verify the health endpoint returns HTTP 200
             curl -f http://localhost:8080/api/health || exit 1
             echo "Health check passed - deployment successful"
