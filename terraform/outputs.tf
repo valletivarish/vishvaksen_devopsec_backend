@@ -6,9 +6,14 @@ output "backend_public_ip" {
   value       = aws_instance.backend.public_ip
 }
 
+output "backend_elastic_ip" {
+  description = "Elastic IP address (stable) for the EC2 backend server"
+  value       = aws_eip.backend.public_ip
+}
+
 output "backend_api_url" {
   description = "URL for accessing the backend API"
-  value       = "http://${aws_instance.backend.public_ip}:8080"
+  value       = "http://${aws_eip.backend.public_ip}:8080"
 }
 
 output "rds_endpoint" {

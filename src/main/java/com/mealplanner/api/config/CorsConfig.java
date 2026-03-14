@@ -33,7 +33,7 @@ public class CorsConfig {
         ));
 
         /* Allowed HTTP methods for CRUD operations */
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         /* Allow Authorization header for JWT and Content-Type for JSON payloads */
         config.setAllowedHeaders(List.of("*"));

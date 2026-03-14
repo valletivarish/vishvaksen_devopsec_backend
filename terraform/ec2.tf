@@ -1,5 +1,5 @@
 # EC2 instance configuration for running the Spring Boot backend API
-# Uses t2.micro (free tier eligible) with Amazon Linux 2023
+# Uses t2.micro (free tier eligible) with Ubuntu 24.04
 
 # Security group allowing HTTP (8080) and SSH (22) access
 resource "aws_security_group" "backend_sg" {
@@ -47,35 +47,42 @@ resource "aws_instance" "backend" {
   vpc_security_group_ids = [aws_security_group.backend_sg.id]
   key_name               = var.key_pair_name
 
-  # User data script installs Java 17 and configures systemd service
+  # User data script installs Java 17 and configures systemd service (Ubuntu 24.04)
   user_data = <<-EOF
               #!/bin/bash
-              # Update system packages
-              sudo yum update -y
-              # Install Amazon Corretto JDK 17
-              sudo yum install -y java-17-amazon-corretto-devel
-              # Create application directory
-              sudo mkdir -p /opt/mealplanner
-              # Create systemd service for automatic startup
-              sudo cat > /etc/systemd/system/mealplanner.service <<'SERVICE'
+              apt-get update -y
+              apt-get install -y openjdk-17-jdk
+              mkdir -p /opt/mealplanner
+              cat > /etc/systemd/system/mealplanner.service <<'SERVICE'
               [Unit]
               Description=Smart Recipe Meal Planner API
               After=network.target
               [Service]
               Type=simple
-              User=ec2-user
+              User=ubuntu
               ExecStart=/usr/bin/java -jar /opt/mealplanner/meal-planner-api-1.0.0.jar --spring.profiles.active=prod
               Restart=always
               RestartSec=10
               [Install]
               WantedBy=multi-user.target
               SERVICE
-              sudo systemctl daemon-reload
-              sudo systemctl enable mealplanner
+              systemctl daemon-reload
+              systemctl enable mealplanner
               EOF
 
   tags = {
     Name    = "meal-planner-backend"
+    Project = "SmartRecipeMealPlanner"
+  }
+}
+
+# Elastic IP for a stable public address (survives instance stop/start)
+resource "aws_eip" "backend" {
+  instance = aws_instance.backend.id
+  domain   = "vpc"
+
+  tags = {
+    Name    = "meal-planner-eip"
     Project = "SmartRecipeMealPlanner"
   }
 }
