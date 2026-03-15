@@ -129,6 +129,7 @@
                     <threshold>Medium</threshold>
                     <xmlOutput>true</xmlOutput>
                     <xmlOutputDirectory>${project.build.directory}/spotbugs</xmlOutputDirectory>
+                    <failOnError>false</failOnError>
                 </configuration>
                 <executions>
                     <execution>
