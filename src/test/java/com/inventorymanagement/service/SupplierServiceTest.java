@@ -158,4 +158,63 @@ class SupplierServiceTest {
 
         verify(supplierRepository, never()).delete(any(Supplier.class));
     }
+
+    // -----------------------------------------------------------------------
+    // getSupplierById
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getSupplierById returns the correct supplier")
+    void testGetSupplierById_Success() {
+        when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
+        when(productRepository.countBySupplier_Id(1L)).thenReturn(5L);
+
+        SupplierResponseDto result = supplierService.getSupplierById(1L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getName()).isEqualTo("Acme Corp");
+        assertThat(result.getProductCount()).isEqualTo(5L);
+    }
+
+    @Test
+    @DisplayName("getSupplierById throws ResourceNotFoundException for non-existent ID")
+    void testGetSupplierById_NotFound() {
+        when(supplierRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> supplierService.getSupplierById(999L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Supplier not found with id: 999");
+    }
+
+    // -----------------------------------------------------------------------
+    // deleteSupplier -- success
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("deleteSupplier removes the supplier when it exists")
+    void testDeleteSupplier_Success() {
+        when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
+
+        supplierService.deleteSupplier(1L);
+
+        verify(supplierRepository, times(1)).delete(supplier);
+    }
+
+    // -----------------------------------------------------------------------
+    // searchSuppliers
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("searchSuppliers returns matching suppliers")
+    void testSearchSuppliers_Success() {
+        when(supplierRepository.findByNameContainingIgnoreCase("acme"))
+                .thenReturn(java.util.Collections.singletonList(supplier));
+        when(productRepository.countBySupplier_Id(1L)).thenReturn(2L);
+
+        List<SupplierResponseDto> result = supplierService.searchSuppliers("acme");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getName()).isEqualTo("Acme Corp");
+    }
 }

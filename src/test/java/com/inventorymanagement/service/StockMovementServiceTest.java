@@ -236,4 +236,121 @@ class StockMovementServiceTest {
         assertThat(result.get(0).getWarehouseName()).isEqualTo("Main Warehouse");
         verify(stockMovementRepository, times(1)).findTop10ByOrderByCreatedAtDesc();
     }
+
+    // -----------------------------------------------------------------------
+    // createMovement -- TRANSFER (no stock change)
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("createMovement with TRANSFER type does not change product stock")
+    void testCreateMovement_Transfer_NoStockChange() {
+        StockMovementDto dto = new StockMovementDto(
+                1L, 1L, 15, MovementType.TRANSFER, "TR-001", "Warehouse transfer"
+        );
+
+        StockMovement transferMovement = StockMovement.builder()
+                .id(3L).product(product).warehouse(warehouse).quantity(15)
+                .type(MovementType.TRANSFER).movementDate(LocalDateTime.now())
+                .createdAt(LocalDateTime.now()).build();
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(warehouseRepository.findById(1L)).thenReturn(Optional.of(warehouse));
+        when(stockMovementRepository.save(any(StockMovement.class))).thenReturn(transferMovement);
+
+        StockMovementResponseDto result = stockMovementService.createMovement(dto);
+
+        assertThat(result).isNotNull();
+        assertThat(product.getCurrentStock()).isEqualTo(50);
+        verify(productRepository, never()).save(any(Product.class));
+    }
+
+    // -----------------------------------------------------------------------
+    // getAllMovements
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getAllMovements returns all movements mapped to DTOs")
+    void testGetAllMovements_Success() {
+        when(stockMovementRepository.findAll()).thenReturn(Collections.singletonList(stockMovement));
+
+        List<StockMovementResponseDto> result = stockMovementService.getAllMovements();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getProductName()).isEqualTo("Wireless Keyboard");
+        verify(stockMovementRepository, times(1)).findAll();
+    }
+
+    // -----------------------------------------------------------------------
+    // getMovementById
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getMovementById returns the correct movement")
+    void testGetMovementById_Success() {
+        when(stockMovementRepository.findById(1L)).thenReturn(Optional.of(stockMovement));
+
+        StockMovementResponseDto result = stockMovementService.getMovementById(1L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getProductName()).isEqualTo("Wireless Keyboard");
+    }
+
+    @Test
+    @DisplayName("getMovementById throws ResourceNotFoundException for non-existent ID")
+    void testGetMovementById_NotFound() {
+        when(stockMovementRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> stockMovementService.getMovementById(999L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("StockMovement not found with id: 999");
+    }
+
+    // -----------------------------------------------------------------------
+    // getMovementsByProduct
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getMovementsByProduct returns movements for a product")
+    void testGetMovementsByProduct_Success() {
+        when(stockMovementRepository.findByProduct_Id(1L))
+                .thenReturn(Collections.singletonList(stockMovement));
+
+        List<StockMovementResponseDto> result = stockMovementService.getMovementsByProduct(1L);
+
+        assertThat(result).hasSize(1);
+        verify(stockMovementRepository, times(1)).findByProduct_Id(1L);
+    }
+
+    // -----------------------------------------------------------------------
+    // getMovementsByWarehouse
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getMovementsByWarehouse returns movements for a warehouse")
+    void testGetMovementsByWarehouse_Success() {
+        when(stockMovementRepository.findByWarehouse_Id(1L))
+                .thenReturn(Collections.singletonList(stockMovement));
+
+        List<StockMovementResponseDto> result = stockMovementService.getMovementsByWarehouse(1L);
+
+        assertThat(result).hasSize(1);
+        verify(stockMovementRepository, times(1)).findByWarehouse_Id(1L);
+    }
+
+    // -----------------------------------------------------------------------
+    // getMovementsByType
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getMovementsByType returns movements filtered by type")
+    void testGetMovementsByType_Success() {
+        when(stockMovementRepository.findByType(MovementType.IN))
+                .thenReturn(Collections.singletonList(stockMovement));
+
+        List<StockMovementResponseDto> result = stockMovementService.getMovementsByType(MovementType.IN);
+
+        assertThat(result).hasSize(1);
+        verify(stockMovementRepository, times(1)).findByType(MovementType.IN);
+    }
 }

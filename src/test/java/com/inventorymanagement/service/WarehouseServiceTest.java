@@ -150,4 +150,46 @@ class WarehouseServiceTest {
 
         verify(warehouseRepository, times(1)).delete(warehouse);
     }
+
+    // -----------------------------------------------------------------------
+    // getWarehouseById
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getWarehouseById returns the correct warehouse")
+    void testGetWarehouseById_Success() {
+        when(warehouseRepository.findById(1L)).thenReturn(Optional.of(warehouse));
+
+        WarehouseResponseDto result = warehouseService.getWarehouseById(1L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getName()).isEqualTo("Main Distribution Center");
+    }
+
+    @Test
+    @DisplayName("getWarehouseById throws ResourceNotFoundException for non-existent ID")
+    void testGetWarehouseById_NotFound() {
+        when(warehouseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> warehouseService.getWarehouseById(999L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Warehouse not found with id: 999");
+    }
+
+    // -----------------------------------------------------------------------
+    // deleteWarehouse -- not found
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("deleteWarehouse throws ResourceNotFoundException for non-existent ID")
+    void testDeleteWarehouse_NotFound() {
+        when(warehouseRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> warehouseService.deleteWarehouse(999L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Warehouse not found with id: 999");
+
+        verify(warehouseRepository, never()).delete(any(Warehouse.class));
+    }
 }
