@@ -301,4 +301,101 @@ class ProductServiceTest {
         assertThat(result.get(0).getName()).containsIgnoringCase("keyboard");
         verify(productRepository, times(1)).findByNameContainingIgnoreCase("keyboard");
     }
+
+    // -----------------------------------------------------------------------
+    // getProductsByCategory
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getProductsByCategory returns products belonging to the category")
+    void testGetProductsByCategory_Success() {
+        when(productRepository.findByCategory_Id(1L))
+                .thenReturn(Collections.singletonList(product));
+
+        List<ProductResponseDto> result = productService.getProductsByCategory(1L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCategoryName()).isEqualTo("Electronics");
+        verify(productRepository, times(1)).findByCategory_Id(1L);
+    }
+
+    // -----------------------------------------------------------------------
+    // getProductsBySupplierId
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getProductsBySupplierId returns products from the supplier")
+    void testGetProductsBySupplierId_Success() {
+        when(productRepository.findBySupplier_Id(1L))
+                .thenReturn(Collections.singletonList(product));
+
+        List<ProductResponseDto> result = productService.getProductsBySupplierId(1L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getSupplierName()).isEqualTo("Acme Corp");
+        verify(productRepository, times(1)).findBySupplier_Id(1L);
+    }
+
+    // -----------------------------------------------------------------------
+    // updateProduct -- not found
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("updateProduct throws ResourceNotFoundException for non-existent product")
+    void testUpdateProduct_NotFound() {
+        when(productRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.updateProduct(999L, productDto))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Product not found with id: 999");
+
+        verify(productRepository, never()).save(any(Product.class));
+    }
+
+    // -----------------------------------------------------------------------
+    // updateProduct -- duplicate SKU
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("updateProduct throws DuplicateResourceException when SKU conflicts with another product")
+    void testUpdateProduct_DuplicateSku() {
+        Product existingOther = Product.builder().id(2L).sku("KB-WIRELESS-001").build();
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.findBySkuIgnoreCase("KB-WIRELESS-001")).thenReturn(Optional.of(existingOther));
+
+        assertThatThrownBy(() -> productService.updateProduct(1L, productDto))
+                .isInstanceOf(DuplicateResourceException.class)
+                .hasMessageContaining("Product already exists with sku: KB-WIRELESS-001");
+    }
+
+    // -----------------------------------------------------------------------
+    // mapToResponseDto -- null category and supplier
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getAllProducts handles product with null category and supplier gracefully")
+    void testMapToResponseDto_NullCategoryAndSupplier() {
+        Product productWithNulls = Product.builder()
+                .id(3L)
+                .name("Orphan Product")
+                .sku("ORPHAN-001")
+                .unitPrice(new BigDecimal("10.00"))
+                .reorderLevel(5)
+                .currentStock(20)
+                .category(null)
+                .supplier(null)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(productRepository.findAll()).thenReturn(Collections.singletonList(productWithNulls));
+
+        List<ProductResponseDto> result = productService.getAllProducts();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCategoryId()).isNull();
+        assertThat(result.get(0).getCategoryName()).isNull();
+        assertThat(result.get(0).getSupplierId()).isNull();
+        assertThat(result.get(0).getSupplierName()).isNull();
+    }
 }

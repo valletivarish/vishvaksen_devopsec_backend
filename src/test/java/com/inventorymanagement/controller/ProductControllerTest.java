@@ -30,6 +30,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -176,5 +177,94 @@ class ProductControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(productService, times(1)).deleteProduct(1L);
+    }
+
+    // -----------------------------------------------------------------------
+    // PUT /api/products/{id}
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("PUT /api/products/{id} returns 200 with updated product")
+    void testUpdateProduct_Success() throws Exception {
+        ProductDto request = new ProductDto(
+                "Updated KB", "KB-002", "Updated", new BigDecimal("59.99"), 15, 1L, 1L
+        );
+        ProductResponseDto response = buildProductResponse(1L, "Updated KB", "KB-002");
+
+        when(productService.updateProduct(any(Long.class), any(ProductDto.class))).thenReturn(response);
+
+        mockMvc.perform(put("/api/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated KB"));
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/products/category/{categoryId}
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("GET /api/products/category/{id} returns products by category")
+    void testGetProductsByCategory_Success() throws Exception {
+        List<ProductResponseDto> products = List.of(buildProductResponse(1L, "Keyboard", "KB-001"));
+
+        when(productService.getProductsByCategory(1L)).thenReturn(products);
+
+        mockMvc.perform(get("/api/products/category/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name").value("Keyboard"));
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/products/supplier/{supplierId}
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("GET /api/products/supplier/{id} returns products by supplier")
+    void testGetProductsBySupplierId_Success() throws Exception {
+        List<ProductResponseDto> products = List.of(buildProductResponse(1L, "Mouse", "MS-001"));
+
+        when(productService.getProductsBySupplierId(1L)).thenReturn(products);
+
+        mockMvc.perform(get("/api/products/supplier/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name").value("Mouse"));
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/products/low-stock
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("GET /api/products/low-stock returns low stock products")
+    void testGetLowStockProducts_Success() throws Exception {
+        List<ProductResponseDto> products = List.of(buildProductResponse(1L, "Low Item", "LS-001"));
+
+        when(productService.getLowStockProducts()).thenReturn(products);
+
+        mockMvc.perform(get("/api/products/low-stock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name").value("Low Item"));
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/products/search?name=...
+    // -----------------------------------------------------------------------
+
+    @Test
+    @DisplayName("GET /api/products/search returns matching products")
+    void testSearchProducts_Success() throws Exception {
+        List<ProductResponseDto> products = List.of(buildProductResponse(1L, "Keyboard", "KB-001"));
+
+        when(productService.searchProducts("Key")).thenReturn(products);
+
+        mockMvc.perform(get("/api/products/search").param("name", "Key"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name").value("Keyboard"));
     }
 }

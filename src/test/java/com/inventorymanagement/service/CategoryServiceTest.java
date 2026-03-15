@@ -181,4 +181,43 @@ class CategoryServiceTest {
 
         verify(categoryRepository, times(1)).delete(category);
     }
+
+    @Test
+    @DisplayName("deleteCategory throws ResourceNotFoundException for non-existent ID")
+    void testDeleteCategory_NotFound() {
+        when(categoryRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> categoryService.deleteCategory(999L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Category not found with id: 999");
+
+        verify(categoryRepository, never()).delete(any(Category.class));
+    }
+
+    @Test
+    @DisplayName("updateCategory throws ResourceNotFoundException for non-existent ID")
+    void testUpdateCategory_NotFound() {
+        when(categoryRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> categoryService.updateCategory(999L, categoryDto))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Category not found with id: 999");
+
+        verify(categoryRepository, never()).save(any(Category.class));
+    }
+
+    @Test
+    @DisplayName("updateCategory throws DuplicateResourceException when name conflicts with another category")
+    void testUpdateCategory_DuplicateName() {
+        Category existingOther = Category.builder().id(2L).name("Electronics").build();
+
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findByNameIgnoreCase("Electronics")).thenReturn(Optional.of(existingOther));
+
+        CategoryDto updateDto = new CategoryDto("Electronics", "Same name");
+
+        assertThatThrownBy(() -> categoryService.updateCategory(1L, updateDto))
+                .isInstanceOf(DuplicateResourceException.class)
+                .hasMessageContaining("Category already exists with name: Electronics");
+    }
 }
