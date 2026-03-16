@@ -132,26 +132,30 @@ jobs:
           script: |
             set -e
             # Stop existing application if running
-            sudo systemctl stop inventory-app || true
+            sudo systemctl stop inventory-backend || true
+            sleep 2
             # Create application directory if it does not exist
-            sudo mkdir -p /opt/inventory-app
+            sudo mkdir -p /opt/inventory-backend
             # Remove old JAR to avoid conflicts
-            sudo rm -f /opt/inventory-app/app.jar
+            sudo rm -f /opt/inventory-backend/app.jar
             # Find and copy the new JAR file
             JAR_FILE=$(find /tmp -maxdepth 1 -name '*.jar' -type f | head -1)
             if [ -z "$JAR_FILE" ]; then echo "ERROR: No JAR found in /tmp"; exit 1; fi
             echo "Deploying: $JAR_FILE"
-            sudo cp "$JAR_FILE" /opt/inventory-app/app.jar
+            sudo cp "$JAR_FILE" /opt/inventory-backend/app.jar
             sudo rm -f "$JAR_FILE"
-            # Set ownership
-            sudo chown ubuntu:ubuntu /opt/inventory-app/app.jar
-            # Start the application using systemd
-            sudo systemctl start inventory-app
+            # Set ownership to match systemd service user
+            sudo chown ec2-user:ec2-user /opt/inventory-backend/app.jar
+            # Restart the application using systemd
+            sudo systemctl restart inventory-backend
             # Wait for application to start
-            sleep 10
+            sleep 15
+            # Verify the app is running
+            sudo systemctl is-active inventory-backend
 
-      # Step 4: Smoke test - verify the deployed application health endpoint
+      # Step 4: Smoke test - verify the deployed application is responding
       - name: Smoke Test
         run: |
-          sleep 20
-          curl -sf --retry 3 --retry-delay 10 http://${{ secrets.EC2_HOST }}:8080/actuator/health
+          sleep 15
+          curl -sf --retry 3 --retry-delay 10 http://${{ secrets.EC2_HOST }}:8080/api/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}'
+          echo "Smoke test passed"
