@@ -131,6 +131,25 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
+            # Create systemd service if it does not exist
+            if [ ! -f /etc/systemd/system/inventory-backend.service ]; then
+              echo "Creating systemd service..."
+              sudo tee /etc/systemd/system/inventory-backend.service > /dev/null <<'SERVICE'
+            [Unit]
+            Description=Inventory Management Backend
+            After=network.target
+            [Service]
+            Type=simple
+            User=ubuntu
+            ExecStart=/usr/bin/java -jar /opt/inventory-backend/app.jar --spring.profiles.active=prod
+            Restart=on-failure
+            RestartSec=10
+            [Install]
+            WantedBy=multi-user.target
+            SERVICE
+              sudo systemctl daemon-reload
+              sudo systemctl enable inventory-backend
+            fi
             # Stop existing application if running
             sudo systemctl stop inventory-backend || true
             sleep 2
@@ -144,8 +163,8 @@ jobs:
             echo "Deploying: $JAR_FILE"
             sudo cp "$JAR_FILE" /opt/inventory-backend/app.jar
             sudo rm -f "$JAR_FILE"
-            # Set ownership to match systemd service user
-            sudo chown ec2-user:ec2-user /opt/inventory-backend/app.jar
+            # Set ownership
+            sudo chown ubuntu:ubuntu /opt/inventory-backend/app.jar
             # Restart the application using systemd
             sudo systemctl restart inventory-backend
             # Wait for application to start
