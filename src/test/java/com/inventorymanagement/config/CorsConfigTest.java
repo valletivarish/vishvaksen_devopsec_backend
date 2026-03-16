@@ -28,7 +28,12 @@ class CorsConfigTest {
 
         assertThat(config).isNotNull();
         assertThat(config.getAllowedOrigins())
-                .containsExactlyInAnyOrder("http://localhost:5173", "http://localhost:3000");
+                .containsExactlyInAnyOrder(
+                        "http://localhost:5173",
+                        "http://localhost:3000",
+                        "http://localhost:10002",
+                        "http://inventory-mgmt-frontend-25173421.s3-website-eu-west-1.amazonaws.com"
+                );
     }
 
     @Test
