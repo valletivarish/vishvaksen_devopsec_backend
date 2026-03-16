@@ -131,25 +131,14 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            # Create systemd service if it does not exist
-            if [ ! -f /etc/systemd/system/inventory-backend.service ]; then
-              echo "Creating systemd service..."
-              sudo tee /etc/systemd/system/inventory-backend.service > /dev/null <<'SERVICE'
-            [Unit]
-            Description=Inventory Management Backend
-            After=network.target
-            [Service]
-            Type=simple
-            User=ubuntu
-            ExecStart=/usr/bin/java -jar /opt/inventory-backend/app.jar --spring.profiles.active=prod
-            Restart=on-failure
-            RestartSec=10
-            [Install]
-            WantedBy=multi-user.target
-            SERVICE
-              sudo systemctl daemon-reload
-              sudo systemctl enable inventory-backend
-            fi
+            # Kill any Java process on port 8080 (old deployment)
+            sudo fuser -k 8080/tcp || true
+            sleep 2
+            # Recreate systemd service to ensure correct config
+            echo "Creating systemd service..."
+            printf '[Unit]\nDescription=Inventory Management Backend\nAfter=network.target\n[Service]\nType=simple\nUser=ubuntu\nExecStart=/usr/bin/java -jar /opt/inventory-backend/app.jar --spring.profiles.active=prod\nRestart=on-failure\nRestartSec=10\n[Install]\nWantedBy=multi-user.target\n' | sudo tee /etc/systemd/system/inventory-backend.service > /dev/null
+            sudo systemctl daemon-reload
+            sudo systemctl enable inventory-backend
             # Stop existing application if running
             sudo systemctl stop inventory-backend || true
             sleep 2
@@ -168,7 +157,7 @@ jobs:
             # Restart the application using systemd
             sudo systemctl restart inventory-backend
             # Wait for application to start
-            sleep 15
+            sleep 30
             # Verify the app is running
             sudo systemctl is-active inventory-backend
 
