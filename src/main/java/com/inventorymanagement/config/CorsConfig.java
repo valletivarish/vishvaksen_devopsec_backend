@@ -38,7 +38,9 @@ public class CorsConfig {
         // Allowed origins: frontend development servers
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "http://localhost:10002",
+                "http://inventory-mgmt-frontend-25173421.s3-website-eu-west-1.amazonaws.com"
         ));
 
         // Allowed HTTP methods for cross-origin requests

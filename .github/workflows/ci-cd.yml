@@ -115,7 +115,7 @@ jobs:
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "./artifact/*.jar"
           target: "/tmp/"
@@ -127,17 +127,19 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # Stop existing application if running
-            sudo systemctl stop inventory-backend || true
+            sudo systemctl stop inventory-app || true
             # Create application directory if it does not exist
-            sudo mkdir -p /opt/inventory-backend
+            sudo mkdir -p /opt/inventory-app
             # Copy the new JAR file to the application directory
-            sudo cp /tmp/*.jar /opt/inventory-backend/app.jar
+            sudo cp /tmp/*.jar /opt/inventory-app/app.jar
+            # Set ownership
+            sudo chown ubuntu:ubuntu /opt/inventory-app/app.jar
             # Start the application using systemd
-            sudo systemctl start inventory-backend
+            sudo systemctl start inventory-app
             # Wait for application to start
             sleep 10
 

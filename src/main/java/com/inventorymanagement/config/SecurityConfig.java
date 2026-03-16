@@ -11,6 +11,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -46,7 +47,7 @@ public class SecurityConfig {
      */
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,
                           CustomUserDetailsService customUserDetailsService,
-                          CorsConfigurationSource corsConfigurationSource) {
+                          @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.customUserDetailsService = customUserDetailsService;
         this.corsConfigurationSource = corsConfigurationSource;
