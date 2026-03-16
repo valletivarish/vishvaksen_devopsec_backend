@@ -29,7 +29,7 @@ import java.util.Map;
  * Exposing such information can aid attackers in reconnaissance. The full error
  * is logged server-side for debugging purposes instead.
  */
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.inventorymanagement.controller")
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
