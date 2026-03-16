@@ -28,7 +28,6 @@ Thumbs.db
 # Environment and secrets
 .env
 *.env
-application-prod.properties
 
 # Terraform state - must not be committed
 terraform/.terraform/
