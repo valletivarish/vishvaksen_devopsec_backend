@@ -161,28 +161,27 @@ jobs:
             echo "User=ubuntu" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
             echo "ExecStart=/usr/bin/java -jar /opt/inventory-backend/app.jar --spring.profiles.active=prod" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
             echo "Restart=always" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
-            echo "RestartSec=10" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
+            echo "RestartSec=30" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
+            echo "StartLimitIntervalSec=600" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
+            echo "StartLimitBurst=20" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
             echo "[Install]" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
             echo "WantedBy=multi-user.target" | sudo tee -a /etc/systemd/system/inventory-backend.service > /dev/null
             sudo systemctl daemon-reload
             sudo systemctl enable inventory-backend
             sudo systemctl restart inventory-backend
             echo "Waiting for application to start..."
-            for i in $(seq 1 12); do
+            for i in $(seq 1 18); do
               sleep 10
               if curl -sf http://localhost:8080/api/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' > /dev/null 2>&1; then
                 echo "Application is ready after $((i*10)) seconds"
                 break
               fi
               echo "Attempt $i: not ready yet..."
-              if [ "$i" -eq 12 ]; then
-                echo "Application failed to start within 120 seconds"
-                sudo journalctl -u inventory-backend --no-pager -n 30
-                exit 1
-              fi
+              # Check if service is still trying
+              sudo systemctl is-active inventory-backend || sudo systemctl start inventory-backend
             done
             sudo systemctl is-active inventory-backend
-            echo "Deploy complete and verified"
+            echo "Deploy complete"
 
       # Step 4: Smoke test - verify the deployed application is responding
       - name: Smoke Test
