@@ -158,7 +158,7 @@ class DtoTest {
         assertThat(dto.getProductCount()).isEqualTo(5L);
         assertThat(dto.getCreatedAt()).isEqualTo(now);
 
-        CategoryResponseDto dto2 = new CategoryResponseDto(1L, "Electronics", "desc", 5L, now);
+        CategoryResponseDto dto2 = new CategoryResponseDto(1L, "Electronics", "desc", 5L, false, now);
         assertThat(dto).isEqualTo(dto2);
         assertThat(dto.toString()).contains("Electronics");
 
@@ -217,7 +217,7 @@ class DtoTest {
         assertThat(dto.getCreatedAt()).isEqualTo(now);
 
         SupplierResponseDto dto2 = new SupplierResponseDto(1L, "Acme", "acme@test.com",
-                "+123", "123 St", 3L, now);
+                "+123", "123 St", 3L, false, now);
         assertThat(dto).isEqualTo(dto2);
         assertThat(dto.toString()).contains("Acme");
 
@@ -273,7 +273,7 @@ class DtoTest {
         assertThat(dto.getCurrentUtilization()).isEqualTo(5000);
         assertThat(dto.getCreatedAt()).isEqualTo(now);
 
-        WarehouseResponseDto dto2 = new WarehouseResponseDto(1L, "Main", "Dublin", 10000, 5000, now);
+        WarehouseResponseDto dto2 = new WarehouseResponseDto(1L, "Main", "Dublin", 10000, 5000, false, now);
         assertThat(dto).isEqualTo(dto2);
         assertThat(dto.toString()).contains("Main");
 

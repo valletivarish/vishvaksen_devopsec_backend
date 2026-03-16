@@ -10,15 +10,10 @@ import com.inventorymanagement.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Service layer for category management operations.
- *
- * Handles CRUD operations for product categories, enforcing business rules
- * such as unique category names and computing product counts for response DTOs.
- */
 @Service
 public class CategoryService {
 
@@ -33,7 +28,7 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public List<CategoryResponseDto> getAllCategories() {
-        return categoryRepository.findAll().stream()
+        return categoryRepository.findByDeletedFalse().stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -47,7 +42,7 @@ public class CategoryService {
 
     @Transactional
     public CategoryResponseDto createCategory(CategoryDto categoryDto) {
-        if (categoryRepository.existsByNameIgnoreCase(categoryDto.getName())) {
+        if (categoryRepository.existsByNameIgnoreCaseAndDeletedFalse(categoryDto.getName())) {
             throw new DuplicateResourceException("Category", "name", categoryDto.getName());
         }
 
@@ -60,25 +55,12 @@ public class CategoryService {
         return mapToResponseDto(savedCategory);
     }
 
-    /**
-     * Updates an existing category.
-     *
-     * Name uniqueness is re-validated excluding the current category so that
-     * saving without changing the name does not trigger a false duplicate error.
-     *
-     * @param id          the category ID to update
-     * @param categoryDto the category update payload
-     * @return the updated category as a response DTO
-     * @throws ResourceNotFoundException  if no category exists with the given ID
-     * @throws DuplicateResourceException if another category already uses the new name
-     */
     @Transactional
     public CategoryResponseDto updateCategory(Long id, CategoryDto categoryDto) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
 
-        // Check name uniqueness only if the name is being changed to a different value
-        categoryRepository.findByNameIgnoreCase(categoryDto.getName())
+        categoryRepository.findByNameIgnoreCaseAndDeletedFalse(categoryDto.getName())
                 .ifPresent(found -> {
                     if (!found.getId().equals(id)) {
                         throw new DuplicateResourceException("Category", "name", categoryDto.getName());
@@ -96,7 +78,26 @@ public class CategoryService {
     public void deleteCategory(Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
-        categoryRepository.delete(category);
+        category.setDeleted(true);
+        category.setDeletedAt(LocalDateTime.now());
+        categoryRepository.save(category);
+    }
+
+    @Transactional
+    public CategoryResponseDto toggleCategoryStatus(Long id) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
+        category.setDeleted(!category.isDeleted());
+        category.setDeletedAt(category.isDeleted() ? LocalDateTime.now() : null);
+        categoryRepository.save(category);
+        return mapToResponseDto(category);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CategoryResponseDto> getAllCategoriesIncludingDeleted() {
+        return categoryRepository.findAll().stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
     }
 
     private CategoryResponseDto mapToResponseDto(Category category) {
@@ -104,7 +105,8 @@ public class CategoryService {
                 .id(category.getId())
                 .name(category.getName())
                 .description(category.getDescription())
-                .productCount(productRepository.countByCategory_Id(category.getId()))
+                .productCount(productRepository.countByCategory_IdAndDeletedFalse(category.getId()))
+                .active(!category.isDeleted())
                 .createdAt(category.getCreatedAt())
                 .build();
     }

@@ -12,15 +12,10 @@ import com.inventorymanagement.repository.WarehouseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Service layer for warehouse management operations.
- *
- * Handles CRUD operations for warehouses, enforcing business rules
- * such as unique warehouse names.
- */
 @Service
 public class WarehouseService {
 
@@ -35,7 +30,7 @@ public class WarehouseService {
 
     @Transactional(readOnly = true)
     public List<WarehouseResponseDto> getAllWarehouses() {
-        return warehouseRepository.findAll().stream()
+        return warehouseRepository.findByDeletedFalse().stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -49,7 +44,7 @@ public class WarehouseService {
 
     @Transactional
     public WarehouseResponseDto createWarehouse(WarehouseDto warehouseDto) {
-        if (warehouseRepository.existsByNameIgnoreCase(warehouseDto.getName())) {
+        if (warehouseRepository.existsByNameIgnoreCaseAndDeletedFalse(warehouseDto.getName())) {
             throw new DuplicateResourceException("Warehouse", "name", warehouseDto.getName());
         }
 
@@ -63,25 +58,12 @@ public class WarehouseService {
         return mapToResponseDto(savedWarehouse);
     }
 
-    /**
-     * Updates an existing warehouse.
-     *
-     * Name uniqueness is re-validated excluding the current warehouse so that
-     * saving without changing the name does not trigger a false duplicate error.
-     *
-     * @param id           the warehouse ID to update
-     * @param warehouseDto the warehouse update payload
-     * @return the updated warehouse as a response DTO
-     * @throws ResourceNotFoundException  if no warehouse exists with the given ID
-     * @throws DuplicateResourceException if another warehouse already uses the new name
-     */
     @Transactional
     public WarehouseResponseDto updateWarehouse(Long id, WarehouseDto warehouseDto) {
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse", "id", id));
 
-        // Check name uniqueness only if the name is being changed to a different value
-        warehouseRepository.findByNameIgnoreCase(warehouseDto.getName())
+        warehouseRepository.findByNameIgnoreCaseAndDeletedFalse(warehouseDto.getName())
                 .ifPresent(found -> {
                     if (!found.getId().equals(id)) {
                         throw new DuplicateResourceException("Warehouse", "name", warehouseDto.getName());
@@ -100,23 +82,29 @@ public class WarehouseService {
     public void deleteWarehouse(Long id) {
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Warehouse", "id", id));
-        warehouseRepository.delete(warehouse);
+        warehouse.setDeleted(true);
+        warehouse.setDeletedAt(LocalDateTime.now());
+        warehouseRepository.save(warehouse);
     }
 
-    /**
-     * Maps a Warehouse entity to a WarehouseResponseDto.
-     *
-     * The currentUtilization is calculated by summing all IN movements for
-     * this warehouse and subtracting all OUT movements. This gives a net
-     * figure representing how many stock units are currently stored at the
-     * warehouse. TRANSFER movements are excluded from this calculation
-     * because they are recorded as separate IN/OUT pairs per warehouse.
-     *
-     * @param warehouse the warehouse entity to convert
-     * @return the fully populated response DTO including utilization data
-     */
+    @Transactional
+    public WarehouseResponseDto toggleWarehouseStatus(Long id) {
+        Warehouse warehouse = warehouseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Warehouse", "id", id));
+        warehouse.setDeleted(!warehouse.isDeleted());
+        warehouse.setDeletedAt(warehouse.isDeleted() ? LocalDateTime.now() : null);
+        warehouseRepository.save(warehouse);
+        return mapToResponseDto(warehouse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<WarehouseResponseDto> getAllWarehousesIncludingDeleted() {
+        return warehouseRepository.findAll().stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
     private WarehouseResponseDto mapToResponseDto(Warehouse warehouse) {
-        // Calculate net stock held at this warehouse: total IN minus total OUT
         List<StockMovement> warehouseMovements = stockMovementRepository.findByWarehouse_Id(warehouse.getId());
 
         int totalIn = warehouseMovements.stream()
@@ -137,6 +125,7 @@ public class WarehouseService {
                 .location(warehouse.getLocation())
                 .capacity(warehouse.getCapacity())
                 .currentUtilization(currentUtilization)
+                .active(!warehouse.isDeleted())
                 .createdAt(warehouse.getCreatedAt())
                 .build();
     }

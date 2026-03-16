@@ -128,7 +128,7 @@ class ProductServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(productRepository.findAll()).thenReturn(Arrays.asList(product, product2));
+        when(productRepository.findByDeletedFalse()).thenReturn(Arrays.asList(product, product2));
 
         // Act
         List<ProductResponseDto> result = productService.getAllProducts();
@@ -137,7 +137,7 @@ class ProductServiceTest {
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getName()).isEqualTo("Wireless Keyboard");
         assertThat(result.get(1).getName()).isEqualTo("USB Mouse");
-        verify(productRepository, times(1)).findAll();
+        verify(productRepository, times(1)).findByDeletedFalse();
     }
 
     // -----------------------------------------------------------------------
@@ -224,6 +224,7 @@ class ProductServiceTest {
                 .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
 
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.findBySkuIgnoreCase("KB-WIRELESS-002")).thenReturn(Optional.empty());
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
         when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
         when(productRepository.save(any(Product.class))).thenReturn(updatedProduct);
@@ -241,13 +242,15 @@ class ProductServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("deleteProduct removes the product when it exists")
+    @DisplayName("deleteProduct soft-deletes the product when it exists")
     void testDeleteProduct_Success() {
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
         productService.deleteProduct(1L);
 
-        verify(productRepository, times(1)).delete(product);
+        assertThat(product.isDeleted()).isTrue();
+        assertThat(product.getDeletedAt()).isNotNull();
+        verify(productRepository, times(1)).save(product);
     }
 
     @Test
@@ -259,7 +262,7 @@ class ProductServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Product not found with id: 999");
 
-        verify(productRepository, never()).delete(any(Product.class));
+        verify(productRepository, never()).save(any(Product.class));
     }
 
     // -----------------------------------------------------------------------
@@ -292,14 +295,14 @@ class ProductServiceTest {
     @Test
     @DisplayName("searchProducts returns products matching the name query")
     void testSearchProducts_Success() {
-        when(productRepository.findByNameContainingIgnoreCase("keyboard"))
+        when(productRepository.findByNameContainingIgnoreCaseAndDeletedFalse("keyboard"))
                 .thenReturn(Collections.singletonList(product));
 
         List<ProductResponseDto> result = productService.searchProducts("keyboard");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).containsIgnoringCase("keyboard");
-        verify(productRepository, times(1)).findByNameContainingIgnoreCase("keyboard");
+        verify(productRepository, times(1)).findByNameContainingIgnoreCaseAndDeletedFalse("keyboard");
     }
 
     // -----------------------------------------------------------------------
@@ -309,14 +312,14 @@ class ProductServiceTest {
     @Test
     @DisplayName("getProductsByCategory returns products belonging to the category")
     void testGetProductsByCategory_Success() {
-        when(productRepository.findByCategory_Id(1L))
+        when(productRepository.findByCategory_IdAndDeletedFalse(1L))
                 .thenReturn(Collections.singletonList(product));
 
         List<ProductResponseDto> result = productService.getProductsByCategory(1L);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getCategoryName()).isEqualTo("Electronics");
-        verify(productRepository, times(1)).findByCategory_Id(1L);
+        verify(productRepository, times(1)).findByCategory_IdAndDeletedFalse(1L);
     }
 
     // -----------------------------------------------------------------------
@@ -326,14 +329,14 @@ class ProductServiceTest {
     @Test
     @DisplayName("getProductsBySupplierId returns products from the supplier")
     void testGetProductsBySupplierId_Success() {
-        when(productRepository.findBySupplier_Id(1L))
+        when(productRepository.findBySupplier_IdAndDeletedFalse(1L))
                 .thenReturn(Collections.singletonList(product));
 
         List<ProductResponseDto> result = productService.getProductsBySupplierId(1L);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getSupplierName()).isEqualTo("Acme Corp");
-        verify(productRepository, times(1)).findBySupplier_Id(1L);
+        verify(productRepository, times(1)).findBySupplier_IdAndDeletedFalse(1L);
     }
 
     // -----------------------------------------------------------------------
@@ -388,7 +391,7 @@ class ProductServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(productRepository.findAll()).thenReturn(Collections.singletonList(productWithNulls));
+        when(productRepository.findByDeletedFalse()).thenReturn(Collections.singletonList(productWithNulls));
 
         List<ProductResponseDto> result = productService.getAllProducts();
 

@@ -10,15 +10,10 @@ import com.inventorymanagement.repository.SupplierRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Service layer for supplier management operations.
- *
- * Handles CRUD operations for suppliers, enforcing business rules
- * such as unique contact email addresses.
- */
 @Service
 public class SupplierService {
 
@@ -33,7 +28,7 @@ public class SupplierService {
 
     @Transactional(readOnly = true)
     public List<SupplierResponseDto> getAllSuppliers() {
-        return supplierRepository.findAll().stream()
+        return supplierRepository.findByDeletedFalse().stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -47,7 +42,7 @@ public class SupplierService {
 
     @Transactional
     public SupplierResponseDto createSupplier(SupplierDto supplierDto) {
-        if (supplierRepository.existsByContactEmail(supplierDto.getContactEmail())) {
+        if (supplierRepository.existsByContactEmailAndDeletedFalse(supplierDto.getContactEmail())) {
             throw new DuplicateResourceException("Supplier", "contactEmail", supplierDto.getContactEmail());
         }
 
@@ -62,26 +57,12 @@ public class SupplierService {
         return mapToResponseDto(savedSupplier);
     }
 
-    /**
-     * Updates an existing supplier.
-     *
-     * Contact email uniqueness is re-validated. If the email has not changed,
-     * the check is effectively a no-op. If it has changed, we verify that no
-     * other supplier already owns the new email address.
-     *
-     * @param id          the supplier ID to update
-     * @param supplierDto the supplier update payload
-     * @return the updated supplier as a response DTO
-     * @throws ResourceNotFoundException  if no supplier exists with the given ID
-     * @throws DuplicateResourceException if another supplier already uses the new email
-     */
     @Transactional
     public SupplierResponseDto updateSupplier(Long id, SupplierDto supplierDto) {
         Supplier supplier = supplierRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", id));
 
-        // Check email uniqueness only if the email is being changed to a different value
-        supplierRepository.findByContactEmail(supplierDto.getContactEmail())
+        supplierRepository.findByContactEmailAndDeletedFalse(supplierDto.getContactEmail())
                 .ifPresent(found -> {
                     if (!found.getId().equals(id)) {
                         throw new DuplicateResourceException("Supplier", "contactEmail", supplierDto.getContactEmail());
@@ -101,12 +82,31 @@ public class SupplierService {
     public void deleteSupplier(Long id) {
         Supplier supplier = supplierRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", id));
-        supplierRepository.delete(supplier);
+        supplier.setDeleted(true);
+        supplier.setDeletedAt(LocalDateTime.now());
+        supplierRepository.save(supplier);
+    }
+
+    @Transactional
+    public SupplierResponseDto toggleSupplierStatus(Long id) {
+        Supplier supplier = supplierRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", id));
+        supplier.setDeleted(!supplier.isDeleted());
+        supplier.setDeletedAt(supplier.isDeleted() ? LocalDateTime.now() : null);
+        supplierRepository.save(supplier);
+        return mapToResponseDto(supplier);
     }
 
     @Transactional(readOnly = true)
     public List<SupplierResponseDto> searchSuppliers(String name) {
-        return supplierRepository.findByNameContainingIgnoreCase(name).stream()
+        return supplierRepository.findByNameContainingIgnoreCaseAndDeletedFalse(name).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SupplierResponseDto> getAllSuppliersIncludingDeleted() {
+        return supplierRepository.findAll().stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -118,7 +118,8 @@ public class SupplierService {
                 .contactEmail(supplier.getContactEmail())
                 .phone(supplier.getPhone())
                 .address(supplier.getAddress())
-                .productCount(productRepository.countBySupplier_Id(supplier.getId()))
+                .productCount(productRepository.countBySupplier_IdAndDeletedFalse(supplier.getId()))
+                .active(!supplier.isDeleted())
                 .createdAt(supplier.getCreatedAt())
                 .build();
     }

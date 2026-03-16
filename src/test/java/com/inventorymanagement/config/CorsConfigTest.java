@@ -46,7 +46,7 @@ class CorsConfigTest {
 
         assertThat(config).isNotNull();
         assertThat(config.getAllowedMethods())
-                .containsExactlyInAnyOrder("GET", "POST", "PUT", "DELETE", "OPTIONS");
+                .containsExactlyInAnyOrder("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
     }
 
     @Test

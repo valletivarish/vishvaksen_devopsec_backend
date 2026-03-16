@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -73,14 +74,16 @@ class WarehouseServiceTest {
                 .id(2L).name("West Coast Hub").location("456 Harbor Blvd, LA, CA")
                 .capacity(5000).createdAt(LocalDateTime.now()).build();
 
-        when(warehouseRepository.findAll()).thenReturn(Arrays.asList(warehouse, warehouse2));
+        when(warehouseRepository.findByDeletedFalse()).thenReturn(Arrays.asList(warehouse, warehouse2));
+        when(stockMovementRepository.findByWarehouse_Id(1L)).thenReturn(Collections.emptyList());
+        when(stockMovementRepository.findByWarehouse_Id(2L)).thenReturn(Collections.emptyList());
 
         List<WarehouseResponseDto> result = warehouseService.getAllWarehouses();
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getName()).isEqualTo("Main Distribution Center");
         assertThat(result.get(1).getName()).isEqualTo("West Coast Hub");
-        verify(warehouseRepository, times(1)).findAll();
+        verify(warehouseRepository, times(1)).findByDeletedFalse();
     }
 
     // -----------------------------------------------------------------------
@@ -90,8 +93,9 @@ class WarehouseServiceTest {
     @Test
     @DisplayName("createWarehouse persists a new warehouse and returns the response DTO")
     void testCreateWarehouse_Success() {
-        when(warehouseRepository.existsByNameIgnoreCase("Main Distribution Center")).thenReturn(false);
+        when(warehouseRepository.existsByNameIgnoreCaseAndDeletedFalse("Main Distribution Center")).thenReturn(false);
         when(warehouseRepository.save(any(Warehouse.class))).thenReturn(warehouse);
+        when(stockMovementRepository.findByWarehouse_Id(1L)).thenReturn(Collections.emptyList());
 
         WarehouseResponseDto result = warehouseService.createWarehouse(warehouseDto);
 
@@ -104,7 +108,7 @@ class WarehouseServiceTest {
     @Test
     @DisplayName("createWarehouse throws DuplicateResourceException when name already exists")
     void testCreateWarehouse_DuplicateName() {
-        when(warehouseRepository.existsByNameIgnoreCase("Main Distribution Center")).thenReturn(true);
+        when(warehouseRepository.existsByNameIgnoreCaseAndDeletedFalse("Main Distribution Center")).thenReturn(true);
 
         assertThatThrownBy(() -> warehouseService.createWarehouse(warehouseDto))
                 .isInstanceOf(DuplicateResourceException.class)
@@ -127,7 +131,9 @@ class WarehouseServiceTest {
                 .capacity(15000).createdAt(LocalDateTime.now()).build();
 
         when(warehouseRepository.findById(1L)).thenReturn(Optional.of(warehouse));
+        when(warehouseRepository.findByNameIgnoreCaseAndDeletedFalse("Updated Center")).thenReturn(Optional.empty());
         when(warehouseRepository.save(any(Warehouse.class))).thenReturn(updatedWarehouse);
+        when(stockMovementRepository.findByWarehouse_Id(1L)).thenReturn(Collections.emptyList());
 
         WarehouseResponseDto result = warehouseService.updateWarehouse(1L, updateDto);
 
@@ -142,13 +148,15 @@ class WarehouseServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("deleteWarehouse removes the warehouse when it exists")
+    @DisplayName("deleteWarehouse soft-deletes the warehouse when it exists")
     void testDeleteWarehouse_Success() {
         when(warehouseRepository.findById(1L)).thenReturn(Optional.of(warehouse));
 
         warehouseService.deleteWarehouse(1L);
 
-        verify(warehouseRepository, times(1)).delete(warehouse);
+        assertThat(warehouse.isDeleted()).isTrue();
+        assertThat(warehouse.getDeletedAt()).isNotNull();
+        verify(warehouseRepository, times(1)).save(warehouse);
     }
 
     // -----------------------------------------------------------------------
@@ -159,6 +167,7 @@ class WarehouseServiceTest {
     @DisplayName("getWarehouseById returns the correct warehouse")
     void testGetWarehouseById_Success() {
         when(warehouseRepository.findById(1L)).thenReturn(Optional.of(warehouse));
+        when(stockMovementRepository.findByWarehouse_Id(1L)).thenReturn(Collections.emptyList());
 
         WarehouseResponseDto result = warehouseService.getWarehouseById(1L);
 
@@ -190,6 +199,6 @@ class WarehouseServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Warehouse not found with id: 999");
 
-        verify(warehouseRepository, never()).delete(any(Warehouse.class));
+        verify(warehouseRepository, never()).save(any(Warehouse.class));
     }
 }

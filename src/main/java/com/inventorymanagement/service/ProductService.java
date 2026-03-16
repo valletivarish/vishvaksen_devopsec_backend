@@ -13,15 +13,10 @@ import com.inventorymanagement.repository.SupplierRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Service layer for product management operations.
- *
- * Encapsulates all business logic related to products including CRUD operations,
- * category/supplier filtering, low-stock detection, and name-based search.
- */
 @Service
 public class ProductService {
 
@@ -39,7 +34,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponseDto> getAllProducts() {
-        return productRepository.findAll().stream()
+        return productRepository.findByDeletedFalse().stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -78,28 +73,11 @@ public class ProductService {
         return mapToResponseDto(savedProduct);
     }
 
-    /**
-     * Updates an existing product.
-     *
-     * Business rules enforced:
-     * 1. SKU uniqueness is checked excluding the current product to allow
-     *    updates that do not change the SKU while still catching conflicts.
-     * 2. The referenced category and supplier must exist.
-     * 3. The currentStock field is NOT modified here -- stock changes flow
-     *    through StockMovementService exclusively.
-     *
-     * @param id         the product ID to update
-     * @param productDto the product update payload
-     * @return the updated product as a response DTO
-     * @throws ResourceNotFoundException   if the product, category, or supplier does not exist
-     * @throws DuplicateResourceException  if another product already uses the new SKU
-     */
     @Transactional
     public ProductResponseDto updateProduct(Long id, ProductDto productDto) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
 
-        // Check SKU uniqueness only if the SKU is being changed to a different value
         productRepository.findBySkuIgnoreCase(productDto.getSku())
                 .ifPresent(found -> {
                     if (!found.getId().equals(id)) {
@@ -113,7 +91,6 @@ public class ProductService {
         Supplier supplier = supplierRepository.findById(productDto.getSupplierId())
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", productDto.getSupplierId()));
 
-        // Update mutable fields; currentStock is intentionally left unchanged
         product.setName(productDto.getName());
         product.setSku(productDto.getSku());
         product.setDescription(productDto.getDescription());
@@ -130,19 +107,31 @@ public class ProductService {
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
-        productRepository.delete(product);
+        product.setDeleted(true);
+        product.setDeletedAt(LocalDateTime.now());
+        productRepository.save(product);
+    }
+
+    @Transactional
+    public ProductResponseDto toggleProductStatus(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
+        product.setDeleted(!product.isDeleted());
+        product.setDeletedAt(product.isDeleted() ? LocalDateTime.now() : null);
+        productRepository.save(product);
+        return mapToResponseDto(product);
     }
 
     @Transactional(readOnly = true)
     public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
-        return productRepository.findByCategory_Id(categoryId).stream()
+        return productRepository.findByCategory_IdAndDeletedFalse(categoryId).stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<ProductResponseDto> getProductsBySupplierId(Long supplierId) {
-        return productRepository.findBySupplier_Id(supplierId).stream()
+        return productRepository.findBySupplier_IdAndDeletedFalse(supplierId).stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -156,7 +145,14 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponseDto> searchProducts(String name) {
-        return productRepository.findByNameContainingIgnoreCase(name).stream()
+        return productRepository.findByNameContainingIgnoreCaseAndDeletedFalse(name).stream()
+                .map(this::mapToResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getAllProductsIncludingDeleted() {
+        return productRepository.findAll().stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -174,6 +170,7 @@ public class ProductService {
                 .supplierId(product.getSupplier() != null ? product.getSupplier().getId() : null)
                 .supplierName(product.getSupplier() != null ? product.getSupplier().getName() : null)
                 .currentStock(product.getCurrentStock())
+                .active(!product.isDeleted())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();

@@ -45,7 +45,7 @@ public class CorsConfig {
 
         // Allowed HTTP methods for cross-origin requests
         configuration.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS"
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
         ));
 
         // Allowed request headers; Authorization is needed for JWT, Content-Type for JSON payloads

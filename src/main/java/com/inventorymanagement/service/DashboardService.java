@@ -71,20 +71,16 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public DashboardDto getDashboardSummary() {
         // Retrieve entity counts from each repository
-        long totalProducts = productRepository.count();
-        long totalCategories = categoryRepository.count();
-        long totalWarehouses = warehouseRepository.count();
-        long totalSuppliers = supplierRepository.count();
+        long totalProducts = productRepository.countByDeletedFalse();
+        long totalCategories = categoryRepository.countByDeletedFalse();
+        long totalWarehouses = warehouseRepository.countByDeletedFalse();
+        long totalSuppliers = supplierRepository.countByDeletedFalse();
 
-        // Retrieve low-stock products for restocking alerts
         List<ProductResponseDto> lowStockProducts = productService.getLowStockProducts();
 
-        // Retrieve the most recent stock movements for activity feed
         List<StockMovementResponseDto> recentMovements = stockMovementService.getRecentMovements();
 
-        // Calculate total inventory value: sum of (unitPrice * currentStock) for all products.
-        // This provides a financial snapshot of the entire inventory at current prices.
-        BigDecimal totalStockValue = productRepository.findAll().stream()
+        BigDecimal totalStockValue = productRepository.findByDeletedFalse().stream()
                 .map(product -> product.getUnitPrice()
                         .multiply(BigDecimal.valueOf(product.getCurrentStock())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

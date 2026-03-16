@@ -32,5 +32,7 @@ public class WarehouseResponseDto {
      */
     private Integer currentUtilization;
 
+    private boolean active;
+
     private LocalDateTime createdAt;
 }

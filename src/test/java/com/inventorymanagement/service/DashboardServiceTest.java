@@ -1,8 +1,6 @@
 package com.inventorymanagement.service;
 
 import com.inventorymanagement.dto.DashboardDto;
-import com.inventorymanagement.dto.ProductResponseDto;
-import com.inventorymanagement.dto.StockMovementResponseDto;
 import com.inventorymanagement.model.Category;
 import com.inventorymanagement.model.Product;
 import com.inventorymanagement.model.Supplier;
@@ -52,10 +50,10 @@ class DashboardServiceTest {
     @Test
     @DisplayName("getDashboardSummary returns aggregated metrics")
     void testGetDashboardSummary_Success() {
-        when(productRepository.count()).thenReturn(10L);
-        when(categoryRepository.count()).thenReturn(3L);
-        when(warehouseRepository.count()).thenReturn(2L);
-        when(supplierRepository.count()).thenReturn(5L);
+        when(productRepository.countByDeletedFalse()).thenReturn(10L);
+        when(categoryRepository.countByDeletedFalse()).thenReturn(3L);
+        when(warehouseRepository.countByDeletedFalse()).thenReturn(2L);
+        when(supplierRepository.countByDeletedFalse()).thenReturn(5L);
         when(productService.getLowStockProducts()).thenReturn(Collections.emptyList());
         when(stockMovementService.getRecentMovements()).thenReturn(Collections.emptyList());
 
@@ -71,7 +69,7 @@ class DashboardServiceTest {
                 .currentStock(20).category(category).supplier(supplier)
                 .createdAt(LocalDateTime.now()).build();
 
-        when(productRepository.findAll()).thenReturn(Arrays.asList(p1, p2));
+        when(productRepository.findByDeletedFalse()).thenReturn(Arrays.asList(p1, p2));
 
         DashboardDto result = dashboardService.getDashboardSummary();
 
@@ -88,13 +86,13 @@ class DashboardServiceTest {
     @Test
     @DisplayName("getDashboardSummary with empty products returns zero stock value")
     void testGetDashboardSummary_EmptyProducts() {
-        when(productRepository.count()).thenReturn(0L);
-        when(categoryRepository.count()).thenReturn(0L);
-        when(warehouseRepository.count()).thenReturn(0L);
-        when(supplierRepository.count()).thenReturn(0L);
+        when(productRepository.countByDeletedFalse()).thenReturn(0L);
+        when(categoryRepository.countByDeletedFalse()).thenReturn(0L);
+        when(warehouseRepository.countByDeletedFalse()).thenReturn(0L);
+        when(supplierRepository.countByDeletedFalse()).thenReturn(0L);
         when(productService.getLowStockProducts()).thenReturn(Collections.emptyList());
         when(stockMovementService.getRecentMovements()).thenReturn(Collections.emptyList());
-        when(productRepository.findAll()).thenReturn(Collections.emptyList());
+        when(productRepository.findByDeletedFalse()).thenReturn(Collections.emptyList());
 
         DashboardDto result = dashboardService.getDashboardSummary();
 

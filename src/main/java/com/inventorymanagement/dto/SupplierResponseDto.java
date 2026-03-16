@@ -31,5 +31,7 @@ public class SupplierResponseDto {
     /** Number of products supplied by this supplier. */
     private Long productCount;
 
+    private boolean active;
+
     private LocalDateTime createdAt;
 }

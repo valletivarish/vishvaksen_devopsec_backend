@@ -27,5 +27,7 @@ public class CategoryResponseDto {
     /** Number of products currently assigned to this category. */
     private Long productCount;
 
+    private boolean active;
+
     private LocalDateTime createdAt;
 }

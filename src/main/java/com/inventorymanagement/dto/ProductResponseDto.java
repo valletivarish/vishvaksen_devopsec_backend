@@ -45,6 +45,8 @@ public class ProductResponseDto {
      */
     private Integer currentStock;
 
+    private boolean active;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

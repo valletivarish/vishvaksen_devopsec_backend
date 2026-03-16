@@ -73,9 +73,9 @@ class CategoryServiceTest {
                 .id(2L).name("Furniture").description("Office furniture")
                 .createdAt(LocalDateTime.now()).build();
 
-        when(categoryRepository.findAll()).thenReturn(Arrays.asList(category, category2));
-        when(productRepository.countByCategory_Id(1L)).thenReturn(5L);
-        when(productRepository.countByCategory_Id(2L)).thenReturn(3L);
+        when(categoryRepository.findByDeletedFalse()).thenReturn(Arrays.asList(category, category2));
+        when(productRepository.countByCategory_IdAndDeletedFalse(1L)).thenReturn(5L);
+        when(productRepository.countByCategory_IdAndDeletedFalse(2L)).thenReturn(3L);
 
         List<CategoryResponseDto> result = categoryService.getAllCategories();
 
@@ -83,7 +83,7 @@ class CategoryServiceTest {
         assertThat(result.get(0).getName()).isEqualTo("Electronics");
         assertThat(result.get(0).getProductCount()).isEqualTo(5L);
         assertThat(result.get(1).getProductCount()).isEqualTo(3L);
-        verify(categoryRepository, times(1)).findAll();
+        verify(categoryRepository, times(1)).findByDeletedFalse();
     }
 
     // -----------------------------------------------------------------------
@@ -94,7 +94,7 @@ class CategoryServiceTest {
     @DisplayName("getCategoryById returns the correct category when it exists")
     void testGetCategoryById_Success() {
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
-        when(productRepository.countByCategory_Id(1L)).thenReturn(5L);
+        when(productRepository.countByCategory_IdAndDeletedFalse(1L)).thenReturn(5L);
 
         CategoryResponseDto result = categoryService.getCategoryById(1L);
 
@@ -121,9 +121,9 @@ class CategoryServiceTest {
     @Test
     @DisplayName("createCategory persists a new category and returns the response DTO")
     void testCreateCategory_Success() {
-        when(categoryRepository.existsByNameIgnoreCase("Electronics")).thenReturn(false);
+        when(categoryRepository.existsByNameIgnoreCaseAndDeletedFalse("Electronics")).thenReturn(false);
         when(categoryRepository.save(any(Category.class))).thenReturn(category);
-        when(productRepository.countByCategory_Id(anyLong())).thenReturn(0L);
+        when(productRepository.countByCategory_IdAndDeletedFalse(anyLong())).thenReturn(0L);
 
         CategoryResponseDto result = categoryService.createCategory(categoryDto);
 
@@ -135,7 +135,7 @@ class CategoryServiceTest {
     @Test
     @DisplayName("createCategory throws DuplicateResourceException when name already exists")
     void testCreateCategory_DuplicateName() {
-        when(categoryRepository.existsByNameIgnoreCase("Electronics")).thenReturn(true);
+        when(categoryRepository.existsByNameIgnoreCaseAndDeletedFalse("Electronics")).thenReturn(true);
 
         assertThatThrownBy(() -> categoryService.createCategory(categoryDto))
                 .isInstanceOf(DuplicateResourceException.class)
@@ -158,8 +158,9 @@ class CategoryServiceTest {
                 .createdAt(LocalDateTime.now()).build();
 
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.findByNameIgnoreCaseAndDeletedFalse("Updated Electronics")).thenReturn(Optional.empty());
         when(categoryRepository.save(any(Category.class))).thenReturn(updatedCategory);
-        when(productRepository.countByCategory_Id(1L)).thenReturn(5L);
+        when(productRepository.countByCategory_IdAndDeletedFalse(1L)).thenReturn(5L);
 
         CategoryResponseDto result = categoryService.updateCategory(1L, updateDto);
 
@@ -173,13 +174,15 @@ class CategoryServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("deleteCategory removes the category when it exists")
+    @DisplayName("deleteCategory soft-deletes the category when it exists")
     void testDeleteCategory_Success() {
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
 
         categoryService.deleteCategory(1L);
 
-        verify(categoryRepository, times(1)).delete(category);
+        assertThat(category.isDeleted()).isTrue();
+        assertThat(category.getDeletedAt()).isNotNull();
+        verify(categoryRepository, times(1)).save(category);
     }
 
     @Test
@@ -191,7 +194,7 @@ class CategoryServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Category not found with id: 999");
 
-        verify(categoryRepository, never()).delete(any(Category.class));
+        verify(categoryRepository, never()).save(any(Category.class));
     }
 
     @Test
@@ -212,7 +215,7 @@ class CategoryServiceTest {
         Category existingOther = Category.builder().id(2L).name("Electronics").build();
 
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
-        when(categoryRepository.findByNameIgnoreCase("Electronics")).thenReturn(Optional.of(existingOther));
+        when(categoryRepository.findByNameIgnoreCaseAndDeletedFalse("Electronics")).thenReturn(Optional.of(existingOther));
 
         CategoryDto updateDto = new CategoryDto("Electronics", "Same name");
 

@@ -75,16 +75,16 @@ class SupplierServiceTest {
                 .id(2L).name("Beta Inc").contactEmail("beta@example.com")
                 .createdAt(LocalDateTime.now()).build();
 
-        when(supplierRepository.findAll()).thenReturn(Arrays.asList(supplier, supplier2));
-        when(productRepository.countBySupplier_Id(1L)).thenReturn(3L);
-        when(productRepository.countBySupplier_Id(2L)).thenReturn(7L);
+        when(supplierRepository.findByDeletedFalse()).thenReturn(Arrays.asList(supplier, supplier2));
+        when(productRepository.countBySupplier_IdAndDeletedFalse(1L)).thenReturn(3L);
+        when(productRepository.countBySupplier_IdAndDeletedFalse(2L)).thenReturn(7L);
 
         List<SupplierResponseDto> result = supplierService.getAllSuppliers();
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getName()).isEqualTo("Acme Corp");
         assertThat(result.get(0).getProductCount()).isEqualTo(3L);
-        verify(supplierRepository, times(1)).findAll();
+        verify(supplierRepository, times(1)).findByDeletedFalse();
     }
 
     // -----------------------------------------------------------------------
@@ -94,9 +94,9 @@ class SupplierServiceTest {
     @Test
     @DisplayName("createSupplier persists a new supplier and returns the response DTO")
     void testCreateSupplier_Success() {
-        when(supplierRepository.existsByContactEmail("acme@example.com")).thenReturn(false);
+        when(supplierRepository.existsByContactEmailAndDeletedFalse("acme@example.com")).thenReturn(false);
         when(supplierRepository.save(any(Supplier.class))).thenReturn(supplier);
-        when(productRepository.countBySupplier_Id(anyLong())).thenReturn(0L);
+        when(productRepository.countBySupplier_IdAndDeletedFalse(anyLong())).thenReturn(0L);
 
         SupplierResponseDto result = supplierService.createSupplier(supplierDto);
 
@@ -109,7 +109,7 @@ class SupplierServiceTest {
     @Test
     @DisplayName("createSupplier throws DuplicateResourceException when email already exists")
     void testCreateSupplier_DuplicateEmail() {
-        when(supplierRepository.existsByContactEmail("acme@example.com")).thenReturn(true);
+        when(supplierRepository.existsByContactEmailAndDeletedFalse("acme@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> supplierService.createSupplier(supplierDto))
                 .isInstanceOf(DuplicateResourceException.class)
@@ -132,8 +132,9 @@ class SupplierServiceTest {
                 .phone("+9876543210").address("456 Oak Ave").createdAt(LocalDateTime.now()).build();
 
         when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
+        when(supplierRepository.findByContactEmailAndDeletedFalse("updated@example.com")).thenReturn(Optional.empty());
         when(supplierRepository.save(any(Supplier.class))).thenReturn(updatedSupplier);
-        when(productRepository.countBySupplier_Id(1L)).thenReturn(3L);
+        when(productRepository.countBySupplier_IdAndDeletedFalse(1L)).thenReturn(3L);
 
         SupplierResponseDto result = supplierService.updateSupplier(1L, updateDto);
 
@@ -156,7 +157,7 @@ class SupplierServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Supplier not found with id: 999");
 
-        verify(supplierRepository, never()).delete(any(Supplier.class));
+        verify(supplierRepository, never()).save(any(Supplier.class));
     }
 
     // -----------------------------------------------------------------------
@@ -167,7 +168,7 @@ class SupplierServiceTest {
     @DisplayName("getSupplierById returns the correct supplier")
     void testGetSupplierById_Success() {
         when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
-        when(productRepository.countBySupplier_Id(1L)).thenReturn(5L);
+        when(productRepository.countBySupplier_IdAndDeletedFalse(1L)).thenReturn(5L);
 
         SupplierResponseDto result = supplierService.getSupplierById(1L);
 
@@ -192,13 +193,15 @@ class SupplierServiceTest {
     // -----------------------------------------------------------------------
 
     @Test
-    @DisplayName("deleteSupplier removes the supplier when it exists")
+    @DisplayName("deleteSupplier soft-deletes the supplier when it exists")
     void testDeleteSupplier_Success() {
         when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
 
         supplierService.deleteSupplier(1L);
 
-        verify(supplierRepository, times(1)).delete(supplier);
+        assertThat(supplier.isDeleted()).isTrue();
+        assertThat(supplier.getDeletedAt()).isNotNull();
+        verify(supplierRepository, times(1)).save(supplier);
     }
 
     // -----------------------------------------------------------------------
@@ -208,9 +211,9 @@ class SupplierServiceTest {
     @Test
     @DisplayName("searchSuppliers returns matching suppliers")
     void testSearchSuppliers_Success() {
-        when(supplierRepository.findByNameContainingIgnoreCase("acme"))
+        when(supplierRepository.findByNameContainingIgnoreCaseAndDeletedFalse("acme"))
                 .thenReturn(java.util.Collections.singletonList(supplier));
-        when(productRepository.countBySupplier_Id(1L)).thenReturn(2L);
+        when(productRepository.countBySupplier_IdAndDeletedFalse(1L)).thenReturn(2L);
 
         List<SupplierResponseDto> result = supplierService.searchSuppliers("acme");
 

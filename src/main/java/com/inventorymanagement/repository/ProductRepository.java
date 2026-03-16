@@ -76,40 +76,29 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      *
      * @return a list of products that are at or below their reorder threshold
      */
-    @Query("SELECT p FROM Product p WHERE p.currentStock <= p.reorderLevel")
+    List<Product> findByDeletedFalse();
+
+    @Query("SELECT p FROM Product p WHERE p.currentStock <= p.reorderLevel AND p.deleted = false")
     List<Product> findByCurrentStockLessThanEqualReorderLevel();
 
-    /**
-     * Searches for products whose name contains the given substring,
-     * ignoring case differences.
-     *
-     * Supports the product search/filter feature in the UI, where users
-     * type partial names to narrow down results.
-     *
-     * @param name the search term to match against product names
-     * @return a list of products whose names contain the search term
-     */
+    @Query("SELECT p FROM Product p WHERE p.currentStock <= p.reorderLevel")
+    List<Product> findAllByCurrentStockLessThanEqualReorderLevel();
+
     List<Product> findByNameContainingIgnoreCase(String name);
 
-    /**
-     * Counts the number of products that belong to the specified category.
-     *
-     * Useful for dashboard statistics and validation checks (e.g., preventing
-     * deletion of a category that still contains products).
-     *
-     * @param categoryId the primary key of the target category
-     * @return the number of products in the given category
-     */
+    List<Product> findByNameContainingIgnoreCaseAndDeletedFalse(String name);
+
+    List<Product> findByCategory_IdAndDeletedFalse(Long categoryId);
+
+    List<Product> findBySupplier_IdAndDeletedFalse(Long supplierId);
+
     long countByCategory_Id(Long categoryId);
 
-    /**
-     * Counts the number of products supplied by the specified supplier.
-     *
-     * Useful for dashboard statistics and validation checks (e.g., preventing
-     * deletion of a supplier that still has associated products).
-     *
-     * @param supplierId the primary key of the target supplier
-     * @return the number of products from the given supplier
-     */
+    long countByCategory_IdAndDeletedFalse(Long categoryId);
+
     long countBySupplier_Id(Long supplierId);
+
+    long countBySupplier_IdAndDeletedFalse(Long supplierId);
+
+    long countByDeletedFalse();
 }
