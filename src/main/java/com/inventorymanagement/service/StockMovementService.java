@@ -4,6 +4,7 @@ import com.inventorymanagement.dto.StockMovementDto;
 import com.inventorymanagement.dto.StockMovementResponseDto;
 import com.inventorymanagement.exception.InsufficientStockException;
 import com.inventorymanagement.exception.ResourceNotFoundException;
+import com.inventorymanagement.exception.WarehouseCapacityExceededException;
 import com.inventorymanagement.model.MovementType;
 import com.inventorymanagement.model.Product;
 import com.inventorymanagement.model.StockMovement;
@@ -124,6 +125,15 @@ public class StockMovementService {
             }
         }
 
+        // For inbound movements, verify warehouse has enough remaining capacity
+        if (movementType == MovementType.IN) {
+            int currentUtilization = calculateWarehouseUtilization(warehouse.getId());
+            if (currentUtilization + dto.getQuantity() > warehouse.getCapacity()) {
+                throw new WarehouseCapacityExceededException(
+                        warehouse.getName(), dto.getQuantity(), currentUtilization, warehouse.getCapacity());
+            }
+        }
+
         // Build and persist the stock movement record with current timestamp
         StockMovement movement = StockMovement.builder()
                 .product(product)
@@ -227,6 +237,22 @@ public class StockMovementService {
      * @param movement the stock movement entity to convert
      * @return the fully populated response DTO
      */
+    private int calculateWarehouseUtilization(Long warehouseId) {
+        List<StockMovement> movements = stockMovementRepository.findByWarehouse_Id(warehouseId);
+
+        int totalIn = movements.stream()
+                .filter(m -> m.getType() == MovementType.IN)
+                .mapToInt(StockMovement::getQuantity)
+                .sum();
+
+        int totalOut = movements.stream()
+                .filter(m -> m.getType() == MovementType.OUT)
+                .mapToInt(StockMovement::getQuantity)
+                .sum();
+
+        return Math.max(totalIn - totalOut, 0);
+    }
+
     private StockMovementResponseDto mapToResponseDto(StockMovement movement) {
         return StockMovementResponseDto.builder()
                 .id(movement.getId())

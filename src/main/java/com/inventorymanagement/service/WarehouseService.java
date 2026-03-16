@@ -129,7 +129,7 @@ public class WarehouseService {
                 .mapToInt(StockMovement::getQuantity)
                 .sum();
 
-        int currentUtilization = totalIn - totalOut;
+        int currentUtilization = Math.max(totalIn - totalOut, 0);
 
         return WarehouseResponseDto.builder()
                 .id(warehouse.getId())

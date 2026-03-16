@@ -87,6 +87,20 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    /**
+     * Handles attempts to add stock that would exceed a warehouse's capacity.
+     * Returns HTTP 400 because the request violates the capacity constraint.
+     */
+    @ExceptionHandler(WarehouseCapacityExceededException.class)
+    public ResponseEntity<ErrorResponse> handleWarehouseCapacityExceededException(WarehouseCapacityExceededException ex) {
+        ErrorResponse response = ErrorResponse.builder()
+                .status(HttpStatus.BAD_REQUEST.value())
+                .message(ex.getMessage())
+                .timestamp(currentTimestamp())
+                .build();
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     // -------------------------------------------------------------------------
     // Validation and deserialization exceptions
     // -------------------------------------------------------------------------
