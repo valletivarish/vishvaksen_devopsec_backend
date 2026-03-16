@@ -48,11 +48,23 @@ public class WarehouseService {
             throw new DuplicateResourceException("Warehouse", "name", warehouseDto.getName());
         }
 
-        Warehouse warehouse = Warehouse.builder()
-                .name(warehouseDto.getName())
-                .location(warehouseDto.getLocation())
-                .capacity(warehouseDto.getCapacity())
-                .build();
+        // Reactivate a soft-deleted warehouse with the same name instead of inserting
+        // a duplicate that would violate the unique constraint.
+        Warehouse warehouse = warehouseRepository.findByNameIgnoreCase(warehouseDto.getName())
+                .filter(Warehouse::isDeleted)
+                .map(existing -> {
+                    existing.setName(warehouseDto.getName());
+                    existing.setLocation(warehouseDto.getLocation());
+                    existing.setCapacity(warehouseDto.getCapacity());
+                    existing.setDeleted(false);
+                    existing.setDeletedAt(null);
+                    return existing;
+                })
+                .orElseGet(() -> Warehouse.builder()
+                        .name(warehouseDto.getName())
+                        .location(warehouseDto.getLocation())
+                        .capacity(warehouseDto.getCapacity())
+                        .build());
 
         Warehouse savedWarehouse = warehouseRepository.save(warehouse);
         return mapToResponseDto(savedWarehouse);

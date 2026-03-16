@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,15 +49,33 @@ public class ProductService {
 
     @Transactional
     public ProductResponseDto createProduct(ProductDto productDto) {
-        if (productRepository.existsBySkuIgnoreCase(productDto.getSku())) {
-            throw new DuplicateResourceException("Product", "sku", productDto.getSku());
-        }
-
         Category category = categoryRepository.findById(productDto.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", productDto.getCategoryId()));
 
         Supplier supplier = supplierRepository.findById(productDto.getSupplierId())
                 .orElseThrow(() -> new ResourceNotFoundException("Supplier", "id", productDto.getSupplierId()));
+
+        // Check if a product with the same SKU exists
+        Optional<Product> existingProduct = productRepository.findBySkuIgnoreCase(productDto.getSku());
+        if (existingProduct.isPresent()) {
+            Product existing = existingProduct.get();
+            if (!existing.isDeleted()) {
+                throw new DuplicateResourceException("Product", "sku", productDto.getSku());
+            }
+            // Reactivate the soft-deleted product with the new data
+            existing.setName(productDto.getName());
+            existing.setSku(productDto.getSku());
+            existing.setDescription(productDto.getDescription());
+            existing.setUnitPrice(productDto.getUnitPrice());
+            existing.setReorderLevel(productDto.getReorderLevel());
+            existing.setCurrentStock(0);
+            existing.setCategory(category);
+            existing.setSupplier(supplier);
+            existing.setDeleted(false);
+            existing.setDeletedAt(null);
+            Product savedProduct = productRepository.save(existing);
+            return mapToResponseDto(savedProduct);
+        }
 
         Product product = Product.builder()
                 .name(productDto.getName())

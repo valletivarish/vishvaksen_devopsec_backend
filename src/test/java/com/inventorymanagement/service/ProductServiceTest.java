@@ -178,7 +178,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("createProduct persists a new product and returns the response DTO")
     void testCreateProduct_Success() {
-        when(productRepository.existsBySkuIgnoreCase("KB-WIRELESS-001")).thenReturn(false);
+        when(productRepository.findBySkuIgnoreCase("KB-WIRELESS-001")).thenReturn(Optional.empty());
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
         when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
         when(productRepository.save(any(Product.class))).thenReturn(product);
@@ -188,14 +188,16 @@ class ProductServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Wireless Keyboard");
         assertThat(result.getSku()).isEqualTo("KB-WIRELESS-001");
-        verify(productRepository, times(1)).existsBySkuIgnoreCase("KB-WIRELESS-001");
+        verify(productRepository, times(1)).findBySkuIgnoreCase("KB-WIRELESS-001");
         verify(productRepository, times(1)).save(any(Product.class));
     }
 
     @Test
     @DisplayName("createProduct throws DuplicateResourceException when SKU already exists")
     void testCreateProduct_DuplicateSku() {
-        when(productRepository.existsBySkuIgnoreCase("KB-WIRELESS-001")).thenReturn(true);
+        when(productRepository.findBySkuIgnoreCase("KB-WIRELESS-001")).thenReturn(Optional.of(product));
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(supplierRepository.findById(1L)).thenReturn(Optional.of(supplier));
 
         assertThatThrownBy(() -> productService.createProduct(productDto))
                 .isInstanceOf(DuplicateResourceException.class)

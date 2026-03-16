@@ -46,10 +46,21 @@ public class CategoryService {
             throw new DuplicateResourceException("Category", "name", categoryDto.getName());
         }
 
-        Category category = Category.builder()
-                .name(categoryDto.getName())
-                .description(categoryDto.getDescription())
-                .build();
+        // Reactivate a soft-deleted category with the same name instead of inserting
+        // a duplicate that would violate the unique constraint.
+        Category category = categoryRepository.findByNameIgnoreCase(categoryDto.getName())
+                .filter(Category::isDeleted)
+                .map(existing -> {
+                    existing.setName(categoryDto.getName());
+                    existing.setDescription(categoryDto.getDescription());
+                    existing.setDeleted(false);
+                    existing.setDeletedAt(null);
+                    return existing;
+                })
+                .orElseGet(() -> Category.builder()
+                        .name(categoryDto.getName())
+                        .description(categoryDto.getDescription())
+                        .build());
 
         Category savedCategory = categoryRepository.save(category);
         return mapToResponseDto(savedCategory);
