@@ -130,12 +130,19 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
             # Stop existing application if running
             sudo systemctl stop inventory-app || true
             # Create application directory if it does not exist
             sudo mkdir -p /opt/inventory-app
-            # Copy the new JAR file to the application directory
-            sudo cp /tmp/*.jar /opt/inventory-app/app.jar
+            # Remove old JAR to avoid conflicts
+            sudo rm -f /opt/inventory-app/app.jar
+            # Find and copy the new JAR file
+            JAR_FILE=$(find /tmp -maxdepth 1 -name '*.jar' -type f | head -1)
+            if [ -z "$JAR_FILE" ]; then echo "ERROR: No JAR found in /tmp"; exit 1; fi
+            echo "Deploying: $JAR_FILE"
+            sudo cp "$JAR_FILE" /opt/inventory-app/app.jar
+            sudo rm -f "$JAR_FILE"
             # Set ownership
             sudo chown ubuntu:ubuntu /opt/inventory-app/app.jar
             # Start the application using systemd
@@ -146,5 +153,5 @@ jobs:
       # Step 4: Smoke test - verify the deployed application health endpoint
       - name: Smoke Test
         run: |
-          sleep 15
-          curl -f http://${{ secrets.EC2_HOST }}:8080/actuator/health || echo "Health check pending - server may still be starting"
+          sleep 20
+          curl -sf --retry 3 --retry-delay 10 http://${{ secrets.EC2_HOST }}:8080/actuator/health
